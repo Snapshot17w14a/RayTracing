@@ -4,28 +4,51 @@ public class CameraRayTraceRender : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayTracer;
 
-    private RenderTexture target;
+    private RenderTexture rayTracedTexture;
+    private Camera cam;
 
     private int kernelHandle;
 
     private void Start()
     {
         kernelHandle = rayTracer.FindKernel("CSMain");
+        cam = Camera.main;
 
         InitRenderTexture();
     }
 
     private void InitRenderTexture()
     {
-        if (target == null || target.width != Screen.width || target.height != Screen.height)
+        if (rayTracedTexture == null || rayTracedTexture.width != Screen.width || rayTracedTexture.height != Screen.height)
         {
-            if (target != null) target.Release();
+            if (rayTracedTexture != null) rayTracedTexture.Release();
 
-            target = new RenderTexture(Screen.width, Screen.height, 0,
+            rayTracedTexture = new RenderTexture(Screen.width, Screen.height, 0,
                 RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
 
-            target.enableRandomWrite = true;
-            target.Create();
+            rayTracedTexture.enableRandomWrite = true;
+            rayTracedTexture.Create();
         }
+    }
+
+    private void Update()
+    {
+        InitRenderTexture();
+
+        rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
+
+        rayTracer.SetVector("_CameraPosition", cam.transform.position);
+        rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
+        rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
+
+        int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
+        int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
+
+        rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
+    }
+
+    private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    {
+        Graphics.Blit(rayTracedTexture, destination);
     }
 }
