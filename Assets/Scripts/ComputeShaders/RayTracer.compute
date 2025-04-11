@@ -1,0 +1,137 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+float3      _CameraPosition;
+float4x4    _CameraToWorld;
+float4x4    _CameraInverseProjection;
+
+struct Material
+{
+    float4 color;       //16 byte
+    float smoothness;   //4  byte
+    float3 padding;     //12 byte
+};
+
+struct Sphere
+{
+    float3 position;    //12 byte
+    float radius;       //4  byte
+    
+    Material material;  //32 byte
+};
+
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+struct HitInfo
+{
+    bool isHit;
+    float distance;
+    float3 position;
+    float3 normal;
+    Material material;
+};
+
+StructuredBuffer<Sphere> _Spheres;
+
+uint numSpheres;
+uint sphereStride = 48;
+float width, height;
+
+HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
+{
+    //float distance = -ray.origin * ray.direction + sqrt(pow(ray.origin * ray.direction, 2) - (pow(ray.origin, 2) - pow(sphere.radius, 2)));
+    
+    HitInfo hitInfo = (HitInfo)0;
+    float3 offsetRayOrigin = ray.origin - sphere.position;
+    
+    float a = dot(ray.direction, ray.direction);
+    float b = 2 * dot(offsetRayOrigin, ray.direction);
+    float c = dot(offsetRayOrigin, offsetRayOrigin) - sphere.radius * sphere.radius;
+    
+    float d = b * b - 4 * a * c;
+    
+    if (d >= 0)
+    {
+        float distance = (-b - sqrt(d)) / (2 * a);
+        
+        if (distance >= 0)
+        {
+            hitInfo.isHit = true;
+            hitInfo.distance = distance;
+            hitInfo.position = ray.origin + ray.direction * distance;
+            hitInfo.normal = normalize(hitInfo.position - sphere.position);
+            hitInfo.material = sphere.material;
+        }
+    }
+    
+    return hitInfo;
+}
+
+HitInfo FindClosestSphereIntersection(Ray ray)
+{
+    HitInfo closestHit = (HitInfo) 0;
+    
+    closestHit.distance = 1.#INF;
+    
+    for (uint i = 0; i < numSpheres; i++)
+    {
+        Sphere sphere = _Spheres[i];
+        
+        HitInfo hitInfo = SphereRayIntersect(ray, sphere);
+
+        if (hitInfo.isHit && hitInfo.distance < closestHit.distance)
+        {
+            closestHit = hitInfo;
+            closestHit.material = hitInfo.material;
+        }
+    }
+
+    return closestHit;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    Result.GetDimensions(width, height);
+    _Spheres.GetDimensions(numSpheres, sphereStride);
+   
+    Ray ray;
+    ray.origin = _CameraPosition;
+   
+   //// Calculate normalized pixel position in NDC space (-1 to 1 range)
+   // float2 ndc = float2((id.x + 0.5) / width * 2.0 - 1.0, (id.y + 0.5) / height * 2.0 - 1.0);
+   
+   //// Transform pixel position to camera space  
+   // float4 cameraSpacePosition = mul(_CameraInverseProjection, float4(ndc, -1, 1));
+   // cameraSpacePosition /= cameraSpacePosition.w;
+   
+   //// Transform camera space position to world space
+   // float3 worldSpaceDirection = normalize(mul(_CameraToWorld, float4(cameraSpacePosition.xyz, 0)).xyz);
+   
+    //ray.direction = worldSpaceDirection;
+    
+    float2 uv = id.xy / float2(width, height) * 2.0 - 1.0;
+    
+    float4 clipUV = float4(uv, 0, 1);
+    float4 rayView = mul(_CameraInverseProjection, clipUV);
+    rayView /= rayView.w;
+    
+    float3 rayDirection = normalize(mul(_CameraToWorld, float4(rayView.xyz, 0)).xyz);
+    
+    ray.direction = rayDirection;
+   
+    Result[id.xy] = FindClosestSphereIntersection(ray).material.color;
+    
+    if (length(ray.origin - _Spheres[0].position) < _Spheres[0].radius)
+    {
+        Result[id.xy] = float4(0.5, 0.5, 0.5, 1);
+    }
+}

@@ -1,20 +1,32 @@
 using UnityEngine;
-
 public class CameraRayTraceRender : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayTracer;
+    [SerializeField] private bool useRayTracer = true;
 
     private RenderTexture rayTracedTexture;
     private Camera cam;
+    private ComputeBuffer sphereBuffer;
+    private RayTracedSphere[] cachedSpheres;
 
     private int kernelHandle;
 
+    public static CameraRayTraceRender Instance => _instance;
+    private static CameraRayTraceRender _instance;
+
     private void Start()
     {
+        if (_instance != null) Destroy(this);
+        _instance = this;
+
         kernelHandle = rayTracer.FindKernel("CSMain");
         cam = Camera.main;
 
+        cachedSpheres = CollectSpheresInScene();
+
         InitRenderTexture();
+        GetSphereDataFromObjects();
+        CreateAndSetSphereBuffer();
     }
 
     private void InitRenderTexture()
@@ -47,8 +59,42 @@ public class CameraRayTraceRender : MonoBehaviour
         rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
     }
 
+    private void CreateAndSetSphereBuffer()
+    {
+        Sphere[] spheres = GetSphereDataFromObjects();
+
+        sphereBuffer ??= new(spheres.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Sphere)));
+        sphereBuffer.SetData(spheres);
+
+        rayTracer.SetBuffer(kernelHandle, "_Spheres", sphereBuffer);
+    }
+
+    private RayTracedSphere[] CollectSpheresInScene()
+    {
+        return FindObjectsByType<RayTracedSphere>(FindObjectsSortMode.InstanceID);
+    }
+
+    private Sphere[] GetSphereDataFromObjects()
+    {
+        Sphere[] spheres = new Sphere[cachedSpheres.Length];
+        for (int i = 0; i < cachedSpheres.Length; i++) spheres[i] = cachedSpheres[i].SphereInformation;
+
+        return spheres;
+    }
+
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        Graphics.Blit(rayTracedTexture, destination);
+        if (useRayTracer) Graphics.Blit(rayTracedTexture, destination);
+        else Graphics.Blit(source, destination);
+    }
+
+    private void OnDisable()
+    {
+        sphereBuffer.Release();
+    }
+
+    public void ResetBuffers()
+    {
+        CreateAndSetSphereBuffer();
     }
 }
