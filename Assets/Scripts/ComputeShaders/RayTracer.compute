@@ -5,9 +5,12 @@
 // with cs.SetTexture
 RWTexture2D<float4> Result;
 
+float3      _LightPosition;
 float3      _CameraPosition;
 float4x4    _CameraToWorld;
 float4x4    _CameraInverseProjection;
+float       _NumRaysPerPixel;
+uint        _IterationCount;
 
 struct Material
 {
@@ -45,10 +48,15 @@ uint numSpheres;
 uint sphereStride = 48;
 float width, height;
 
-HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
+float RandomUInt(uint input)
 {
-    //float distance = -ray.origin * ray.direction + sqrt(pow(ray.origin * ray.direction, 2) - (pow(ray.origin, 2) - pow(sphere.radius, 2)));
-    
+    uint state = input * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return ((word >> 22u) ^ word) / 4294967295.0;
+}
+
+HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
+{   
     HitInfo hitInfo = (HitInfo)0;
     float3 offsetRayOrigin = ray.origin - sphere.position;
     
@@ -97,28 +105,15 @@ HitInfo FindClosestSphereIntersection(Ray ray)
     return closestHit;
 }
 
-[numthreads(8, 8, 1)]
-void CSMain(uint3 id : SV_DispatchThreadID)
+Ray ConstructPixelRay(uint3 id, uint index)
 {
-    Result.GetDimensions(width, height);
-    _Spheres.GetDimensions(numSpheres, sphereStride);
-   
+    uint pixelID = id.x * width + id.y;
+    float random = RandomUInt(pixelID + _IterationCount + index);
+    
     Ray ray;
     ray.origin = _CameraPosition;
-   
-   //// Calculate normalized pixel position in NDC space (-1 to 1 range)
-   // float2 ndc = float2((id.x + 0.5) / width * 2.0 - 1.0, (id.y + 0.5) / height * 2.0 - 1.0);
-   
-   //// Transform pixel position to camera space  
-   // float4 cameraSpacePosition = mul(_CameraInverseProjection, float4(ndc, -1, 1));
-   // cameraSpacePosition /= cameraSpacePosition.w;
-   
-   //// Transform camera space position to world space
-   // float3 worldSpaceDirection = normalize(mul(_CameraToWorld, float4(cameraSpacePosition.xyz, 0)).xyz);
-   
-    //ray.direction = worldSpaceDirection;
     
-    float2 uv = id.xy / float2(width, height) * 2.0 - 1.0;
+    float2 uv = (id.xy + float2(random.xx)) / float2(width, height) * 2.0 - 1.0;
     
     float4 clipUV = float4(uv, 0, 1);
     float4 rayView = mul(_CameraInverseProjection, clipUV);
@@ -127,11 +122,52 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float3 rayDirection = normalize(mul(_CameraToWorld, float4(rayView.xyz, 0)).xyz);
     
     ray.direction = rayDirection;
-   
-    Result[id.xy] = FindClosestSphereIntersection(ray).material.color;
     
-    if (length(ray.origin - _Spheres[0].position) < _Spheres[0].radius)
+    return ray;
+}
+
+float3 Trace(Ray ray)
+{
+    //Find the closest intersection with a sphere
+    HitInfo closestIntersection = FindClosestSphereIntersection(ray);
+    
+    //Get the color of the sphere and store it for later use
+    float4 finalColor = closestIntersection.material.color;
+    
+    //Create a ray from the closest intersection to the light source to get simple shadows
+    Ray hitPointRay;
+    hitPointRay.origin = closestIntersection.position + closestIntersection.normal * 0.001;
+    hitPointRay.direction = normalize(_LightPosition - hitPointRay.origin);
+    
+    //Check if the constructed ray intersects anything on its way to the light source, if it is dim the color
+    if (FindClosestSphereIntersection(hitPointRay).isHit)
     {
-        Result[id.xy] = float4(0.5, 0.5, 0.5, 1);
+        finalColor *= 0.2;
     }
+    
+    return finalColor;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    //Cache some useful values for later use
+    Result.GetDimensions(width, height);
+    _Spheres.GetDimensions(numSpheres, sphereStride);
+    
+    float3 finalColor;
+    
+    //Create multiple rays per pixel with slight variations
+    for (uint i = 0; i < _NumRaysPerPixel; i++)
+    {
+        Ray ray = ConstructPixelRay(id, i);
+        finalColor += Trace(ray);
+    }
+    
+    //Output the color to the pixel
+    Result[id.xy] = float4(finalColor / _NumRaysPerPixel, 1);
+    
+    //uint pixelID = id.y * width + id.x;
+    //float final = RandomUInt(pixelID);
+    //Result[id.xy] = float4(final.xxx, 1);
 }

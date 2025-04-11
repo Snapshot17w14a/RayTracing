@@ -5,7 +5,7 @@ using System;
 [Serializable]
 public struct RayTracedMaterial
 {
-    [SerializeField] Color color;
+    [SerializeField] public Color color;
     [SerializeField] float smoothness;
     Vector3 padding;
 

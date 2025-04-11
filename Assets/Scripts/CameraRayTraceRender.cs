@@ -3,6 +3,7 @@ public class CameraRayTraceRender : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayTracer;
     [SerializeField] private bool useRayTracer = true;
+    [SerializeField] [Range(1, 512)] private int raysPerPixel = 1;
 
     private RenderTexture rayTracedTexture;
     private Camera cam;
@@ -10,6 +11,7 @@ public class CameraRayTraceRender : MonoBehaviour
     private RayTracedSphere[] cachedSpheres;
 
     private int kernelHandle;
+    private int iterationCount = 0;
 
     public static CameraRayTraceRender Instance => _instance;
     private static CameraRayTraceRender _instance;
@@ -49,14 +51,19 @@ public class CameraRayTraceRender : MonoBehaviour
 
         rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
 
+        rayTracer.SetVector("_LightPosition", FindAnyObjectByType<Light>().transform.position);
         rayTracer.SetVector("_CameraPosition", cam.transform.position);
         rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
         rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
+        rayTracer.SetFloat("_NumRaysPerPixel", raysPerPixel);
+        rayTracer.SetInt("_IterationCount", iterationCount);
 
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
 
         rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
+
+        iterationCount++;
     }
 
     private void CreateAndSetSphereBuffer()
