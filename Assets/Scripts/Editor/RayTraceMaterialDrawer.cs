@@ -13,6 +13,8 @@ public class RayTraceMaterialDrawer : PropertyDrawer
     {
         var colorProperty = property.FindPropertyRelative("color");
         var smoothnessProperty = property.FindPropertyRelative("smoothness");
+        var emissionPrperty = property.FindPropertyRelative("emission");
+        var emissionColorProperty = property.FindPropertyRelative("emissionColor");
 
         Rect rectPosition = new Rect(position.x, position.y, position.width, singleLineHeight);
 
@@ -24,6 +26,10 @@ public class RayTraceMaterialDrawer : PropertyDrawer
         PropertyField(rectPosition, colorProperty, new GUIContent("Color"));
         NextLine(ref rectPosition, propertyPath);
         smoothnessProperty.floatValue = Slider(rectPosition, new GUIContent("Smoothness"), smoothnessProperty.floatValue, 0, 1);
+        NextLine(ref rectPosition, propertyPath);
+        emissionPrperty.floatValue = Slider(rectPosition, new GUIContent("Emission"), emissionPrperty.floatValue, 0, 1);
+        NextLine(ref rectPosition, propertyPath);
+        PropertyField(rectPosition, emissionColorProperty, new GUIContent("Emission Color"));
         NextLine(ref rectPosition, propertyPath);
 
         EndProperty();

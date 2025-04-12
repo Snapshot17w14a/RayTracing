@@ -9,14 +9,18 @@ float3      _LightPosition;
 float3      _CameraPosition;
 float4x4    _CameraToWorld;
 float4x4    _CameraInverseProjection;
-float       _NumRaysPerPixel;
+uint        _NumRaysPerPixel;
 uint        _IterationCount;
+uint        _MaxBounces;
+float3      _SkyColor;
 
 struct Material
 {
-    float4 color;       //16 byte
-    float smoothness;   //4  byte
-    float3 padding;     //12 byte
+    float4 color;           //16 byte
+    float smoothness;       //4  byte
+    float emission;        //4  byte
+    float3 emissionColor;  //12 byte
+    float3 padding;         //12 byte
 };
 
 struct Sphere
@@ -24,7 +28,7 @@ struct Sphere
     float3 position;    //12 byte
     float radius;       //4  byte
     
-    Material material;  //32 byte
+    Material material;  //48 byte
 };
 
 struct Ray
@@ -48,11 +52,20 @@ uint numSpheres;
 uint sphereStride = 48;
 float width, height;
 
-float RandomUInt(uint input)
+uint state = 1;
+
+static float PI = 3.14159265358979;
+
+uint RandomUInt()
 {
-    uint state = input * 747796405u + 2891336453u;
+    state = state * 747796405u + 2891336453u;
     uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return ((word >> 22u) ^ word) / 4294967295.0;
+    return ((word >> 22u) ^ word);
+}
+
+float RandomFloat01()
+{
+    return RandomUInt() / 4294967295.0;
 }
 
 HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
@@ -108,7 +121,7 @@ HitInfo FindClosestSphereIntersection(Ray ray)
 Ray ConstructPixelRay(uint3 id, uint index)
 {
     uint pixelID = id.x * width + id.y;
-    float random = RandomUInt(pixelID + _IterationCount + index);
+    float random = RandomFloat01();
     
     Ray ray;
     ray.origin = _CameraPosition;
@@ -126,26 +139,66 @@ Ray ConstructPixelRay(uint3 id, uint index)
     return ray;
 }
 
+float RandomNormallyDistributed()
+{
+    float theta = 2 * PI * RandomFloat01();
+    float rho = sqrt(-2 * log(RandomFloat01()));
+    return rho * cos(theta);
+}
+
+float3 RandomRay(float3 normal)
+{
+    float x = RandomNormallyDistributed();
+    float y = RandomNormallyDistributed();
+    float z = RandomNormallyDistributed();
+    
+
+    return normalize(float3(x, y, z));
+}
+
 float3 Trace(Ray ray)
 {
-    //Find the closest intersection with a sphere
-    HitInfo closestIntersection = FindClosestSphereIntersection(ray);
+    ////Find the closest intersection with a sphere
+    //HitInfo closestIntersection = FindClosestSphereIntersection(ray);
     
-    //Get the color of the sphere and store it for later use
-    float4 finalColor = closestIntersection.material.color;
+    ////Get the color of the sphere and store it for later use
+    //float4 finalColor = closestIntersection.material.color;
     
-    //Create a ray from the closest intersection to the light source to get simple shadows
-    Ray hitPointRay;
-    hitPointRay.origin = closestIntersection.position + closestIntersection.normal * 0.001;
-    hitPointRay.direction = normalize(_LightPosition - hitPointRay.origin);
+    ////Create a ray from the closest intersection to the light source to get simple shadows
+    //Ray hitPointRay;
+    //hitPointRay.origin = closestIntersection.position + closestIntersection.normal * 0.001;
+    //hitPointRay.direction = normalize(_LightPosition - hitPointRay.origin);
     
-    //Check if the constructed ray intersects anything on its way to the light source, if it is dim the color
-    if (FindClosestSphereIntersection(hitPointRay).isHit)
+    ////Check if the constructed ray intersects anything on its way to the light source, if it is dim the color
+    //if (FindClosestSphereIntersection(hitPointRay).isHit)
+    //{
+    //    finalColor *= 0.2;
+    //}
+    
+    float3 incomingLight = 0;
+    float3 finalColor = 1;
+    
+    for (uint i = 0; i <= _MaxBounces; i++)
     {
-        finalColor *= 0.2;
+        HitInfo hitInfo = FindClosestSphereIntersection(ray);
+        
+        if (hitInfo.isHit)
+        {
+            ray.origin = hitInfo.position + hitInfo.normal * 0.001;
+            ray.direction = normalize(hitInfo.normal + RandomRay(hitInfo.normal));
+            
+            incomingLight += (hitInfo.material.emission * hitInfo.material.emissionColor) * finalColor;
+            finalColor += hitInfo.material.color.xyz;
+        }
+        else
+        {
+            //incomingLight += _SkyColor * finalColor;
+            
+            break;
+        }
     }
     
-    return finalColor;
+    return incomingLight;
 }
 
 [numthreads(8, 8, 1)]

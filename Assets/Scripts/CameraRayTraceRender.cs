@@ -4,6 +4,8 @@ public class CameraRayTraceRender : MonoBehaviour
     [SerializeField] private ComputeShader rayTracer;
     [SerializeField] private bool useRayTracer = true;
     [SerializeField] [Range(1, 512)] private int raysPerPixel = 1;
+    [SerializeField] private int maxBouces = 1;
+    [SerializeField] private Color skyColor;
 
     private RenderTexture rayTracedTexture;
     private Camera cam;
@@ -53,10 +55,12 @@ public class CameraRayTraceRender : MonoBehaviour
 
         rayTracer.SetVector("_LightPosition", FindAnyObjectByType<Light>().transform.position);
         rayTracer.SetVector("_CameraPosition", cam.transform.position);
+        rayTracer.SetVector("_SkyColor", skyColor);
         rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
         rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
-        rayTracer.SetFloat("_NumRaysPerPixel", raysPerPixel);
-        rayTracer.SetInt("_IterationCount", iterationCount);
+        rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
+        //rayTracer.SetInt("_IterationCount", iterationCount);
+        rayTracer.SetInt("_MaxBounces", maxBouces);
 
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
