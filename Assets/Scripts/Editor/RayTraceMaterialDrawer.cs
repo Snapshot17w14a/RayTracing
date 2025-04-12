@@ -27,7 +27,7 @@ public class RayTraceMaterialDrawer : PropertyDrawer
         NextLine(ref rectPosition, propertyPath);
         smoothnessProperty.floatValue = Slider(rectPosition, new GUIContent("Smoothness"), smoothnessProperty.floatValue, 0, 1);
         NextLine(ref rectPosition, propertyPath);
-        emissionPrperty.floatValue = Slider(rectPosition, new GUIContent("Emission"), emissionPrperty.floatValue, 0, 1);
+        emissionPrperty.floatValue = Slider(rectPosition, new GUIContent("Emission"), emissionPrperty.floatValue, 0, 10);
         NextLine(ref rectPosition, propertyPath);
         PropertyField(rectPosition, emissionColorProperty, new GUIContent("Emission Color"));
         NextLine(ref rectPosition, propertyPath);

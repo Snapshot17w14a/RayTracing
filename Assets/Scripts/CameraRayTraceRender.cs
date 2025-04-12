@@ -1,8 +1,11 @@
 using UnityEngine;
+
+[ExecuteAlways, ImageEffectAllowedInSceneView]
 public class CameraRayTraceRender : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayTracer;
     [SerializeField] private bool useRayTracer = true;
+    [SerializeField] private bool useShaderInSceneView = false;
     [SerializeField] [Range(1, 512)] private int raysPerPixel = 1;
     [SerializeField] private int maxBouces = 1;
     [SerializeField] private Color skyColor;
@@ -20,17 +23,39 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void Start()
     {
-        if (_instance != null) Destroy(this);
+        if (_instance != null) DestroyImmediate(this);
         _instance = this;
 
+        InitializeShader();
+    }    
+
+    private void Update()
+    {
+        RunShader();
+    }
+
+    private void InitializeShader()
+    {
         kernelHandle = rayTracer.FindKernel("CSMain");
-        cam = Camera.main;
 
         cachedSpheres = CollectSpheresInScene();
 
         InitRenderTexture();
         GetSphereDataFromObjects();
         CreateAndSetSphereBuffer();
+    }
+
+    private void RunShader()
+    {
+        InitRenderTexture();
+        UpdateParameters();
+
+        int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
+        int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
+
+        rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
+
+        iterationCount++;
     }
 
     private void InitRenderTexture()
@@ -45,29 +70,6 @@ public class CameraRayTraceRender : MonoBehaviour
             rayTracedTexture.enableRandomWrite = true;
             rayTracedTexture.Create();
         }
-    }
-
-    private void Update()
-    {
-        InitRenderTexture();
-
-        rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
-
-        rayTracer.SetVector("_LightPosition", FindAnyObjectByType<Light>().transform.position);
-        rayTracer.SetVector("_CameraPosition", cam.transform.position);
-        rayTracer.SetVector("_SkyColor", skyColor);
-        rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
-        rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
-        rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
-        //rayTracer.SetInt("_IterationCount", iterationCount);
-        rayTracer.SetInt("_MaxBounces", maxBouces);
-
-        int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
-        int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
-
-        rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
-
-        iterationCount++;
     }
 
     private void CreateAndSetSphereBuffer()
@@ -93,15 +95,37 @@ public class CameraRayTraceRender : MonoBehaviour
         return spheres;
     }
 
+    private void UpdateParameters()
+    {
+        cam = Camera.current;
+
+        rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
+
+        rayTracer.SetVector("_LightPosition", FindAnyObjectByType<Light>().transform.position);
+        rayTracer.SetVector("_CameraPosition", cam.transform.position);
+        rayTracer.SetVector("_SkyColor", skyColor);
+        rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
+        rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
+        rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
+        //rayTracer.SetInt("_IterationCount", iterationCount);
+        rayTracer.SetInt("_MaxBounces", maxBouces);
+    }
+
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        if (useRayTracer) Graphics.Blit(rayTracedTexture, destination);
+        if (Camera.current.name == "SceneCamera" && useShaderInSceneView && useRayTracer)
+        {
+            InitializeShader();
+            RunShader();
+            Graphics.Blit(rayTracedTexture, destination);
+        }
+        else if (Camera.current == Camera.main && useRayTracer) Graphics.Blit(rayTracedTexture, destination);
         else Graphics.Blit(source, destination);
     }
 
     private void OnDisable()
     {
-        sphereBuffer.Release();
+        sphereBuffer?.Release();
     }
 
     public void ResetBuffers()
