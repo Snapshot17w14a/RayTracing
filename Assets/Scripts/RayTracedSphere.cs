@@ -14,6 +14,6 @@ public class RayTracedSphere : MonoBehaviour
         transform.localScale = Vector3.one * (radius * 2);
         if (meshMaterial == null) meshMaterial = GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Standard"));
         meshMaterial.color = material.color;
-        if (CameraRayTraceRender.Instance != null) CameraRayTraceRender.Instance.ResetBuffers();
+        CameraRayTraceRender.UpdateBuffersNextUpdate = true;
     }
 }

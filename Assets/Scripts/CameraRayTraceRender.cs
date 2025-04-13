@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 [ExecuteAlways, ImageEffectAllowedInSceneView]
@@ -11,21 +12,22 @@ public class CameraRayTraceRender : MonoBehaviour
     [SerializeField] private Color skyColor;
 
     private RenderTexture rayTracedTexture;
-    private Camera cam;
-    private ComputeBuffer sphereBuffer;
+    private Camera renderCamrera;
+
     private RayTracedSphere[] cachedSpheres;
+    private ComputeBuffer sphereBuffer;
+
+    private RayTracedMesh[] cachedMeshes;
+    private ComputeBuffer meshInfoBuffer;
+    private ComputeBuffer triBuffer;
 
     private int kernelHandle;
     private int iterationCount = 0;
 
-    public static CameraRayTraceRender Instance => _instance;
-    private static CameraRayTraceRender _instance;
+    public static bool UpdateBuffersNextUpdate { get; set; } = false;
 
     private void Start()
     {
-        if (_instance != null) DestroyImmediate(this);
-        _instance = this;
-
         InitializeShader();
     }    
 
@@ -37,18 +39,21 @@ public class CameraRayTraceRender : MonoBehaviour
     private void InitializeShader()
     {
         kernelHandle = rayTracer.FindKernel("CSMain");
-
         cachedSpheres = CollectSpheresInScene();
+        cachedMeshes = CollectMeshesInScene();
+        renderCamrera = Camera.current;
+        renderCamrera = renderCamrera != null ? renderCamrera : Camera.main;
 
         InitRenderTexture();
         GetSphereDataFromObjects();
-        CreateAndSetSphereBuffer();
+        ResetBuffers();
     }
 
     private void RunShader()
     {
         InitRenderTexture();
         UpdateParameters();
+        ResetBuffers();
 
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
@@ -72,11 +77,18 @@ public class CameraRayTraceRender : MonoBehaviour
         }
     }
 
+    #region SphereMethods
+
     private void CreateAndSetSphereBuffer()
     {
         Sphere[] spheres = GetSphereDataFromObjects();
 
-        sphereBuffer ??= new(spheres.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Sphere)));
+        if (spheres.Length == 0) return;
+
+        if (sphereBuffer == null || sphereBuffer.count != spheres.Length)
+        {
+            sphereBuffer = new(spheres.Length, Marshal.SizeOf(typeof(Sphere)));
+        }
         sphereBuffer.SetData(spheres);
 
         rayTracer.SetBuffer(kernelHandle, "_Spheres", sphereBuffer);
@@ -84,31 +96,73 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private RayTracedSphere[] CollectSpheresInScene()
     {
-        return FindObjectsByType<RayTracedSphere>(FindObjectsSortMode.InstanceID);
+        return FindObjectsByType<RayTracedSphere>(FindObjectsSortMode.None);
     }
 
     private Sphere[] GetSphereDataFromObjects()
     {
         Sphere[] spheres = new Sphere[cachedSpheres.Length];
-        for (int i = 0; i < cachedSpheres.Length; i++) spheres[i] = cachedSpheres[i].SphereInformation;
+        for (int i = 0; i < cachedSpheres.Length; i++)
+        {
+            if (cachedSpheres[i] == null) continue;
+            spheres[i] = cachedSpheres[i].SphereInformation;
+        }
 
         return spheres;
     }
 
+    #endregion
+
+    #region MeshMethods
+
+    private void CreateAndSetMeshBuffer()
+    {
+        foreach (var mesh in cachedMeshes) mesh.AddMeshToSplitter();
+        (MeshInfo[], Triangle[]) allMeshInfo = MeshSplitter.FlushData();
+
+        //MeshInfo[] asd = new MeshInfo[] { new MeshInfo() { firstTirangeIndex = 0, numTriangles = 1, material = new(Color.white, 0, 0, Color.clear), minBounds = new Vector3(-1, -1, -1), maxBounds = new Vector3(1, 1, 1) } };
+        //Triangle[] dsa = new Triangle[] { new Triangle() { a = new Vector3(-0.5f, 0, 0), b = new Vector3(-0.5f, 0.5f, 0), c = new Vector3(0.5f, 0, 0), aNormal = new Vector3(0, 0, -1), bNormal = new Vector3(0, 0, -1) , cNormal = new Vector3(0, 0, -1) } };
+
+        //(MeshInfo[], Triangle[]) allMeshInfo = (asd, dsa);
+
+        if (allMeshInfo.Item1.Length == 0 || allMeshInfo.Item2.Length == 0) return;
+
+        if (meshInfoBuffer == null || meshInfoBuffer.count != allMeshInfo.Item1.Length)
+        {
+            meshInfoBuffer = new(allMeshInfo.Item1.Length, Marshal.SizeOf(typeof(MeshInfo)));
+        }
+        meshInfoBuffer.SetData(allMeshInfo.Item1);
+
+        if (triBuffer == null || triBuffer.count != allMeshInfo.Item2.Length)
+        {
+            triBuffer = new(allMeshInfo.Item2.Length, Marshal.SizeOf(typeof(Triangle)));
+        }
+        triBuffer.SetData(allMeshInfo.Item2);
+
+        rayTracer.SetBuffer(kernelHandle, "_MeshInfo", meshInfoBuffer);
+        rayTracer.SetBuffer(kernelHandle, "_Tris", triBuffer);
+    }
+
+    private RayTracedMesh[] CollectMeshesInScene()
+    {
+        return FindObjectsByType<RayTracedMesh>(FindObjectsSortMode.None);
+    }
+
+    #endregion
+
     private void UpdateParameters()
     {
-        cam = Camera.current;
-
         rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
 
-        rayTracer.SetVector("_LightPosition", FindAnyObjectByType<Light>().transform.position);
-        rayTracer.SetVector("_CameraPosition", cam.transform.position);
+        rayTracer.SetVector("_CameraPosition", renderCamrera.transform.position);
         rayTracer.SetVector("_SkyColor", skyColor);
-        rayTracer.SetMatrix("_CameraToWorld", cam.cameraToWorldMatrix);
-        rayTracer.SetMatrix("_CameraInverseProjection", cam.projectionMatrix.inverse);
+        rayTracer.SetMatrix("_CameraToWorld", renderCamrera.cameraToWorldMatrix);
+        rayTracer.SetMatrix("_CameraInverseProjection", renderCamrera.projectionMatrix.inverse);
         rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
-        //rayTracer.SetInt("_IterationCount", iterationCount);
+        rayTracer.SetInt("_IterationCount", iterationCount);
         rayTracer.SetInt("_MaxBounces", maxBouces);
+
+        if (UpdateBuffersNextUpdate) ResetBuffers();
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -126,10 +180,17 @@ public class CameraRayTraceRender : MonoBehaviour
     private void OnDisable()
     {
         sphereBuffer?.Release();
+        meshInfoBuffer?.Release();
+        triBuffer?.Release();
     }
 
     public void ResetBuffers()
     {
+        cachedSpheres = CollectSpheresInScene();
+        cachedMeshes = CollectMeshesInScene();
+
         CreateAndSetSphereBuffer();
+        CreateAndSetMeshBuffer();
+        UpdateBuffersNextUpdate = false;
     }
 }
