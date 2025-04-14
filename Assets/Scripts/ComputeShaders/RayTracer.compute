@@ -11,7 +11,12 @@ float4x4    _CameraInverseProjection;
 uint        _NumRaysPerPixel;
 uint        _IterationCount;
 uint        _MaxBounces;
+float3      _HorizonColor;
 float3      _SkyColor;
+float       _SkyEmission;
+float3      _SunDirection;
+float       _SunEye;
+float       _SunColor;
 
 struct Material             //48 byte
 {
@@ -331,6 +336,16 @@ float3 RandomRay(float3 normal)
     return normalize(float3(x, y, z));
 }
 
+float3 SkyColor(Ray ray)
+{
+    //return smoothstep(float3(0.2, 0.2, 0.2), _SkyColor, (ray.direction.y + 1) / 2);
+    float skyT = pow(smoothstep(0, 0.4, ray.direction.y), 0.35);
+    float3 skyColor = lerp(_HorizonColor, _SkyColor, skyT);
+    float mult = pow(max(0, dot(ray.direction, -_SunDirection)), _SunEye);
+    
+    return lerp(float3(0.1, 0.1, 0.1), skyColor, smoothstep(-0.01, 0, ray.direction.y)) + (_SunColor * mult);
+}
+
 float3 Trace(Ray ray)
 {   
     float3 incomingLight = 0;
@@ -343,14 +358,16 @@ float3 Trace(Ray ray)
         if (hitInfo.isHit)
         {
             ray.origin = hitInfo.position + hitInfo.normal * 0.001;
-            ray.direction = normalize(hitInfo.normal + RandomRay(hitInfo.normal));
+            float3 diffuseDirection = normalize(hitInfo.normal + RandomRay(hitInfo.normal));
+            float3 specularDirection = reflect(ray.direction, hitInfo.normal);
+            ray.direction = lerp(diffuseDirection, specularDirection, hitInfo.material.smoothness);
             
             incomingLight += (hitInfo.material.emission * hitInfo.material.emissionColor) * finalColor;
             finalColor += hitInfo.material.color.xyz;
         }
         else
         {
-            incomingLight += _SkyColor * finalColor;
+            incomingLight += (SkyColor(ray) * _SkyEmission) * finalColor;
             break;
         }
     }

@@ -4,12 +4,20 @@ using UnityEngine;
 [ExecuteAlways, ImageEffectAllowedInSceneView]
 public class CameraRayTraceRender : MonoBehaviour
 {
+    [Header("Render Settings")]
     [SerializeField] private ComputeShader rayTracer;
     [SerializeField] private bool useRayTracer = true;
     [SerializeField] private bool useShaderInSceneView = false;
     [SerializeField] [Range(1, 512)] private int raysPerPixel = 1;
     [SerializeField] private int maxBouces = 1;
-    [SerializeField] private Color skyColor;
+
+    [Header("Environment Settings")]
+    [SerializeField] private Color HorizonColor;
+    [SerializeField] private Color SkyColor;
+    [SerializeField] [Range(0, 1)] private float skyEmissionStrength = 1f;
+    [SerializeField] private Color sunColor;
+    [SerializeField] private float skyEyeStrength = 1f;
+    [SerializeField] private float sunEmission = 1f;
 
     private RenderTexture rayTracedTexture;
     private Camera renderCamrera;
@@ -155,12 +163,17 @@ public class CameraRayTraceRender : MonoBehaviour
         rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
 
         rayTracer.SetVector("_CameraPosition", renderCamrera.transform.position);
-        rayTracer.SetVector("_SkyColor", skyColor);
+        rayTracer.SetVector("_HorizonColor", HorizonColor);
+        rayTracer.SetVector("_SkyColor", SkyColor);
+        rayTracer.SetVector("_SunDirection", FindAnyObjectByType<Light>().transform.forward.normalized);
         rayTracer.SetMatrix("_CameraToWorld", renderCamrera.cameraToWorldMatrix);
         rayTracer.SetMatrix("_CameraInverseProjection", renderCamrera.projectionMatrix.inverse);
         rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
         rayTracer.SetInt("_IterationCount", iterationCount);
         rayTracer.SetInt("_MaxBounces", maxBouces);
+        rayTracer.SetFloat("_SkyEmission", skyEmissionStrength);
+        rayTracer.SetFloat("_SunEye", skyEyeStrength);
+        rayTracer.SetVector("_SunColor", sunColor * sunEmission);
 
         if (UpdateBuffersNextUpdate) ResetBuffers();
     }
