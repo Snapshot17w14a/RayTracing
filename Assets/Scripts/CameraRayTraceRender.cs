@@ -6,10 +6,13 @@ public class CameraRayTraceRender : MonoBehaviour
 {
     [Header("Render Settings")]
     [SerializeField] private ComputeShader rayTracer;
+    [SerializeField] private ComputeShader accumulativeShader;
     [SerializeField] private bool useRayTracer = true;
     [SerializeField] private bool useShaderInSceneView = false;
     [SerializeField] [Range(1, 512)] private int raysPerPixel = 1;
     [SerializeField] private int maxBouces = 1;
+    [SerializeField] private bool resetBuffersOnUpdate = false;
+    [SerializeField] private bool accumulateFrames = true;
 
     [Header("Environment Settings")]
     [SerializeField] private Color HorizonColor;
@@ -19,6 +22,7 @@ public class CameraRayTraceRender : MonoBehaviour
     [SerializeField] private float skyEyeStrength = 1f;
     [SerializeField] private float sunEmission = 1f;
 
+    private RenderTexture accumulativeTexture;
     private RenderTexture rayTracedTexture;
     private Camera renderCamrera;
 
@@ -29,8 +33,11 @@ public class CameraRayTraceRender : MonoBehaviour
     private ComputeBuffer meshInfoBuffer;
     private ComputeBuffer triBuffer;
 
-    private int kernelHandle;
+    private int accumulatorKernelHandle;
+    private int rayTracerKernelHandle;
     private int iterationCount = 0;
+
+    private bool isInitialized = false;
 
     public static bool UpdateBuffersNextUpdate { get; set; } = false;
 
@@ -46,42 +53,54 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void InitializeShader()
     {
-        kernelHandle = rayTracer.FindKernel("CSMain");
+        rayTracerKernelHandle = rayTracer.FindKernel("CSMain");
+        accumulatorKernelHandle = accumulativeShader.FindKernel("CSMain");
         cachedSpheres = CollectSpheresInScene();
         cachedMeshes = CollectMeshesInScene();
         renderCamrera = Camera.current;
         renderCamrera = renderCamrera != null ? renderCamrera : Camera.main;
 
-        InitRenderTexture();
+        InitRenderTexture(ref rayTracedTexture);
+        if (accumulateFrames) InitRenderTexture(ref accumulativeTexture);
+
         GetSphereDataFromObjects();
         ResetBuffers();
+
+        isInitialized = true;
     }
 
     private void RunShader()
     {
-        InitRenderTexture();
+        if (resetBuffersOnUpdate) UpdateBuffersNextUpdate = true;
+        if (!isInitialized) InitRenderTexture(ref rayTracedTexture);
+
         UpdateParameters();
-        ResetBuffers();
 
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
 
-        rayTracer.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1);
+        rayTracer.Dispatch(rayTracerKernelHandle, threadGroupsX, threadGroupsY, 1);
+
+        if (accumulateFrames && accumulativeTexture != null)
+        {
+            SetAccumulativeParameters();
+            accumulativeShader.Dispatch(accumulatorKernelHandle, threadGroupsX, threadGroupsY, 1);
+        }
 
         iterationCount++;
     }
 
-    private void InitRenderTexture()
+    private void InitRenderTexture(ref RenderTexture texture)
     {
-        if (rayTracedTexture == null || rayTracedTexture.width != Screen.width || rayTracedTexture.height != Screen.height)
+        if (texture == null || texture.width != Screen.width || texture.height != Screen.height)
         {
-            if (rayTracedTexture != null) rayTracedTexture.Release();
+            if (texture != null) texture.Release();
 
-            rayTracedTexture = new RenderTexture(Screen.width, Screen.height, 0,
+            texture = new RenderTexture(Screen.width, Screen.height, 0,
                 RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
 
-            rayTracedTexture.enableRandomWrite = true;
-            rayTracedTexture.Create();
+            texture.enableRandomWrite = true;
+            texture.Create();
         }
     }
 
@@ -99,7 +118,7 @@ public class CameraRayTraceRender : MonoBehaviour
         }
         sphereBuffer.SetData(spheres);
 
-        rayTracer.SetBuffer(kernelHandle, "_Spheres", sphereBuffer);
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_Spheres", sphereBuffer);
     }
 
     private RayTracedSphere[] CollectSpheresInScene()
@@ -147,8 +166,8 @@ public class CameraRayTraceRender : MonoBehaviour
         }
         triBuffer.SetData(allMeshInfo.Item2);
 
-        rayTracer.SetBuffer(kernelHandle, "_MeshInfo", meshInfoBuffer);
-        rayTracer.SetBuffer(kernelHandle, "_Tris", triBuffer);
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_MeshInfo", meshInfoBuffer);
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_Tris", triBuffer);
     }
 
     private RayTracedMesh[] CollectMeshesInScene()
@@ -160,7 +179,7 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void UpdateParameters()
     {
-        rayTracer.SetTexture(kernelHandle, "Result", rayTracedTexture);
+        rayTracer.SetTexture(rayTracerKernelHandle, "Result", rayTracedTexture);
 
         rayTracer.SetVector("_CameraPosition", renderCamrera.transform.position);
         rayTracer.SetVector("_HorizonColor", HorizonColor);
@@ -178,16 +197,36 @@ public class CameraRayTraceRender : MonoBehaviour
         if (UpdateBuffersNextUpdate) ResetBuffers();
     }
 
+    private void SetAccumulativeParameters()
+    {
+        accumulativeShader.SetTexture(accumulatorKernelHandle, "Result", accumulativeTexture);
+        accumulativeShader.SetTexture(accumulatorKernelHandle, "_RenderedFrame", rayTracedTexture);
+        accumulativeShader.SetInt("_FrameCount", iterationCount);
+    }
+
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
         if (Camera.current.name == "SceneCamera" && useShaderInSceneView && useRayTracer)
         {
-            InitializeShader();
+            if (!isInitialized) InitializeShader();
             RunShader();
             Graphics.Blit(rayTracedTexture, destination);
         }
-        else if (Camera.current == Camera.main && useRayTracer) Graphics.Blit(rayTracedTexture, destination);
+        else if (Camera.current == Camera.main && useRayTracer) Graphics.Blit(accumulateFrames && accumulativeTexture != null ? accumulativeTexture : rayTracedTexture, destination);
         else Graphics.Blit(source, destination);
+    }
+
+    public void ResetBuffers()
+    {
+        Debug.Log("Resetting buffers");
+
+        cachedSpheres = CollectSpheresInScene();
+        cachedMeshes = CollectMeshesInScene();
+
+        CreateAndSetSphereBuffer();
+        CreateAndSetMeshBuffer();
+
+        UpdateBuffersNextUpdate = false;
     }
 
     private void OnDisable()
@@ -195,15 +234,17 @@ public class CameraRayTraceRender : MonoBehaviour
         sphereBuffer?.Release();
         meshInfoBuffer?.Release();
         triBuffer?.Release();
+
+        isInitialized = false;
     }
 
-    public void ResetBuffers()
+    private void OnDestroy()
     {
-        cachedSpheres = CollectSpheresInScene();
-        cachedMeshes = CollectMeshesInScene();
+        isInitialized = false;
+    }
 
-        CreateAndSetSphereBuffer();
-        CreateAndSetMeshBuffer();
-        UpdateBuffersNextUpdate = false;
+    private void OnValidate()
+    {
+        isInitialized = false;
     }
 }

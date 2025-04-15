@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class RayTracedMesh : MonoBehaviour
+public class RayTracedMesh : RayTracedObject
 {
     [SerializeField] private RayTracedMaterial material;
 
@@ -9,8 +9,8 @@ public class RayTracedMesh : MonoBehaviour
         MeshSplitter.SplitMesh(GetComponent<MeshFilter>().sharedMesh, material, transform.localToWorldMatrix);
     }
 
-    private void OnValidate()
+    protected override void OnValidate()
     {
-        CameraRayTraceRender.UpdateBuffersNextUpdate = true;
+        base.OnValidate();
     }
 }

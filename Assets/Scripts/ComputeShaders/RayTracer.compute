@@ -123,9 +123,14 @@ HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
 
 HitInfo TriangleRayIntersect(Ray ray, Triangle tri, float4x4 localToWorld)
 {
-    tri.a = mul(localToWorld, float4(tri.a.xyz, 1)).xyz;
-    tri.b = mul(localToWorld, float4(tri.b.xyz, 1)).xyz;
-    tri.c = mul(localToWorld, float4(tri.c.xyz, 1)).xyz;
+    //tri.a = mul(localToWorld, float4(tri.a.xyz, 1)).xyz;
+    //tri.b = mul(localToWorld, float4(tri.b.xyz, 1)).xyz;
+    //tri.c = mul(localToWorld, float4(tri.c.xyz, 1)).xyz;
+    
+    ////float3x3 normalMatrix = transpose(inverse((float3x3) localToWorld));
+    //tri.Anormal = normalize(mul((float3x3) localToWorld, tri.Anormal));
+    //tri.Bnormal = normalize(mul((float3x3) localToWorld, tri.Bnormal));
+    //tri.Cnormal = normalize(mul((float3x3) localToWorld, tri.Cnormal));
     
     float3 edgeAB = tri.b - tri.a;
     float3 edgeAC = tri.c - tri.a;
@@ -211,8 +216,8 @@ HitInfo TriangleRayIntersect(Ray ray, Triangle tri, float4x4 localToWorld)
 
 bool RayBoundingBox(Ray ray, float3 boundsMin, float3 boundsMax, float4x4 localToWorldMatrix)
 {
-    boundsMin = mul(localToWorldMatrix, float4(boundsMin.xyz, 1)).xyz;
-    boundsMax = mul(localToWorldMatrix, float4(boundsMax.xyz, 1)).xyz;
+    //boundsMin = mul(localToWorldMatrix, float4(boundsMin.xyz, 1)).xyz;
+    //boundsMax = mul(localToWorldMatrix, float4(boundsMax.xyz, 1)).xyz;
     
     float3 invDir = 1 / ray.direction;
     float3 tMin = (boundsMin - ray.origin) * invDir;
@@ -282,6 +287,11 @@ HitInfo FindClosestRayIntersection(Ray ray)
                 closestHit.material = mesh.material;
             }
         }
+        
+        //closestHit.position = ray.origin + 2 * ray.direction;
+        //closestHit.material.color = float4(1, 1, 1, 1);
+        //closestHit.normal = float3(0, 0, -1);
+        //closestHit.isHit = true;
         
         //Material mat;
         //mat.color = float4(_Tris[mesh.firstTriangleIndex + 0].c, 1);
@@ -363,7 +373,7 @@ float3 Trace(Ray ray)
             ray.direction = lerp(diffuseDirection, specularDirection, hitInfo.material.smoothness);
             
             incomingLight += (hitInfo.material.emission * hitInfo.material.emissionColor) * finalColor;
-            finalColor += hitInfo.material.color.xyz;
+            finalColor *= hitInfo.material.color.xyz;
         }
         else
         {
@@ -384,7 +394,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     _MeshInfo.GetDimensions(numMeshes, meshStride);
     
     //Seed the random generation with the absolute index of the pixel
-    state += id.y * width + id.x;
+    state += (id.y * width + id.x) * _IterationCount;
 
     float3 finalColor;
     
