@@ -288,6 +288,8 @@ HitInfo FindClosestRayIntersection(Ray ray)
             }
         }
         
+        closestHit.material.color = float4(closestHit.normal.xyz, 1);
+        
         //closestHit.position = ray.origin + 2 * ray.direction;
         //closestHit.material.color = float4(1, 1, 1, 1);
         //closestHit.normal = float3(0, 0, -1);
@@ -394,7 +396,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     _MeshInfo.GetDimensions(numMeshes, meshStride);
     
     //Seed the random generation with the absolute index of the pixel
-    state += (id.y * width + id.x) * _IterationCount;
+    state += (uint)(id.y * width + id.x) * _IterationCount;
 
     float3 finalColor;
     
