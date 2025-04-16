@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using UnityEngine;
 
 [ExecuteAlways, ImageEffectAllowedInSceneView]
@@ -27,11 +26,8 @@ public class CameraRayTraceRender : MonoBehaviour
     private Camera renderCamrera;
 
     private RayTracedSphere[] cachedSpheres;
-    private ComputeBuffer sphereBuffer;
 
     private RayTracedMesh[] cachedMeshes;
-    private ComputeBuffer meshInfoBuffer;
-    private ComputeBuffer triBuffer;
 
     private int accumulatorKernelHandle;
     private int rayTracerKernelHandle;
@@ -60,8 +56,8 @@ public class CameraRayTraceRender : MonoBehaviour
         renderCamrera = Camera.current;
         renderCamrera = renderCamrera != null ? renderCamrera : Camera.main;
 
-        InitRenderTexture(ref rayTracedTexture);
-        if (accumulateFrames) InitRenderTexture(ref accumulativeTexture);
+        ShaderTool.InitRenderTexture(ref rayTracedTexture);
+        if (accumulateFrames) ShaderTool.InitRenderTexture(ref accumulativeTexture);
 
         GetSphereDataFromObjects();
         ResetBuffers();
@@ -72,9 +68,10 @@ public class CameraRayTraceRender : MonoBehaviour
     private void RunShader()
     {
         if (resetBuffersOnUpdate) UpdateBuffersNextUpdate = true;
-        if (!isInitialized) InitRenderTexture(ref rayTracedTexture);
+        if (!isInitialized) ShaderTool.InitRenderTexture(ref rayTracedTexture);
 
         UpdateParameters();
+        UpdateMeshObjectMatrices();
 
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
@@ -89,36 +86,18 @@ public class CameraRayTraceRender : MonoBehaviour
 
         iterationCount++;
     }
-
-    private void InitRenderTexture(ref RenderTexture texture)
-    {
-        if (texture == null || texture.width != Screen.width || texture.height != Screen.height)
-        {
-            if (texture != null) texture.Release();
-
-            texture = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-
-            texture.enableRandomWrite = true;
-            texture.Create();
-        }
-    }
-
+    
     #region SphereMethods
 
     private void CreateAndSetSphereBuffer()
     {
         Sphere[] spheres = GetSphereDataFromObjects();
-
         if (spheres.Length == 0) return;
 
-        if (sphereBuffer == null || sphereBuffer.count != spheres.Length)
-        {
-            sphereBuffer = new(spheres.Length, Marshal.SizeOf(typeof(Sphere)));
-        }
-        sphereBuffer.SetData(spheres);
+        ShaderTool.CreateComputeBuffer<Sphere>(spheres.Length);
+        ShaderTool.SetBuffer<Sphere>(spheres);
 
-        rayTracer.SetBuffer(rayTracerKernelHandle, "_Spheres", sphereBuffer);
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_Spheres", ShaderTool.GetComputeBuffer<Sphere>());
     }
 
     private RayTracedSphere[] CollectSpheresInScene()
@@ -147,32 +126,48 @@ public class CameraRayTraceRender : MonoBehaviour
         foreach (var mesh in cachedMeshes) mesh.AddMeshToSplitter();
         (MeshInfo[], Triangle[]) allMeshInfo = MeshSplitter.FlushData();
 
-        //MeshInfo[] asd = new MeshInfo[] { new MeshInfo() { firstTirangeIndex = 0, numTriangles = 1, material = new(Color.white, 0, 0, Color.clear), minBounds = new Vector3(-1, -1, -1), maxBounds = new Vector3(1, 1, 1) } };
-        //Triangle[] dsa = new Triangle[] { new Triangle() { a = new Vector3(-0.5f, 0, 0), b = new Vector3(-0.5f, 0.5f, 0), c = new Vector3(0.5f, 0, 0), aNormal = new Vector3(0, 0, -1), bNormal = new Vector3(0, 0, -1) , cNormal = new Vector3(0, 0, -1) } };
-
-        //(MeshInfo[], Triangle[]) allMeshInfo = (asd, dsa);
-
         if (allMeshInfo.Item1.Length == 0 || allMeshInfo.Item2.Length == 0) return;
 
-        if (meshInfoBuffer == null || meshInfoBuffer.count != allMeshInfo.Item1.Length)
-        {
-            meshInfoBuffer = new(allMeshInfo.Item1.Length, Marshal.SizeOf(typeof(MeshInfo)));
-        }
-        meshInfoBuffer.SetData(allMeshInfo.Item1);
+        ShaderTool.CreateComputeBuffer<MeshInfo>(allMeshInfo.Item1.Length);
+        ShaderTool.SetBuffer(allMeshInfo.Item1);
 
-        if (triBuffer == null || triBuffer.count != allMeshInfo.Item2.Length)
-        {
-            triBuffer = new(allMeshInfo.Item2.Length, Marshal.SizeOf(typeof(Triangle)));
-        }
-        triBuffer.SetData(allMeshInfo.Item2);
+        ShaderTool.CreateComputeBuffer<Triangle>(allMeshInfo.Item2.Length);
+        ShaderTool.SetBuffer(allMeshInfo.Item2);
 
-        rayTracer.SetBuffer(rayTracerKernelHandle, "_MeshInfo", meshInfoBuffer);
-        rayTracer.SetBuffer(rayTracerKernelHandle, "_Tris", triBuffer);
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_MeshInfo", ShaderTool.GetComputeBuffer<MeshInfo>());
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_Tris", ShaderTool.GetComputeBuffer<Triangle>());
     }
 
     private RayTracedMesh[] CollectMeshesInScene()
     {
         return FindObjectsByType<RayTracedMesh>(FindObjectsSortMode.None);
+    }
+
+    private void UpdateMeshObjectMatrices()
+    {
+        Matrix4x4[] localToWorldMatrices = new Matrix4x4[cachedMeshes.Length];
+        Matrix4x4[] worldToLocalMatrices = new Matrix4x4[cachedMeshes.Length];
+
+        if (cachedMeshes.Length == 0) return;
+
+        for (int i = 0; i < cachedMeshes.Length; i++)
+        {
+            //localToWorldMatrices[i] = cachedMeshes[i].transform.localToWorldMatrix;
+            //worldToLocalMatrices[i] = cachedMeshes[i].transform.worldToLocalMatrix;
+
+            localToWorldMatrices[i] = Matrix4x4.identity;
+            worldToLocalMatrices[i] = Matrix4x4.identity;
+        }
+
+        ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length);
+        ShaderTool.SetBuffer(localToWorldMatrices);
+
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_LocalToWorldMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
+
+        ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
+        ShaderTool.SetBuffer(worldToLocalMatrices);
+
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_WorldToLocalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
     }
 
     #endregion
@@ -188,7 +183,7 @@ public class CameraRayTraceRender : MonoBehaviour
         rayTracer.SetMatrix("_CameraToWorld", renderCamrera.cameraToWorldMatrix);
         rayTracer.SetMatrix("_CameraInverseProjection", renderCamrera.projectionMatrix.inverse);
         rayTracer.SetInt("_NumRaysPerPixel", raysPerPixel);
-        rayTracer.SetInt("_IterationCount", iterationCount);
+        rayTracer.SetInt("_IterationCount", iterationCount % int.MaxValue);
         rayTracer.SetInt("_MaxBounces", maxBouces);
         rayTracer.SetFloat("_SkyEmission", skyEmissionStrength);
         rayTracer.SetFloat("_SunEye", skyEyeStrength);
@@ -231,10 +226,6 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void OnDisable()
     {
-        sphereBuffer?.Release();
-        meshInfoBuffer?.Release();
-        triBuffer?.Release();
-
         isInitialized = false;
     }
 
