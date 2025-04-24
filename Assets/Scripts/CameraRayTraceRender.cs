@@ -152,11 +152,11 @@ public class CameraRayTraceRender : MonoBehaviour
 
         for (int i = 0; i < cachedMeshes.Length; i++)
         {
-            //localToWorldMatrices[i] = cachedMeshes[i].transform.localToWorldMatrix;
-            //worldToLocalMatrices[i] = cachedMeshes[i].transform.worldToLocalMatrix;
+            localToWorldMatrices[i] = cachedMeshes[i].transform.localToWorldMatrix.inverse.transpose; ;
+            worldToLocalMatrices[i] = cachedMeshes[i].transform.worldToLocalMatrix;
 
-            localToWorldMatrices[i] = Matrix4x4.identity;
-            worldToLocalMatrices[i] = Matrix4x4.identity;
+            //localToWorldMatrices[i] = Matrix4x4.identity;
+            //worldToLocalMatrices[i] = Matrix4x4.identity;
         }
 
         ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length);

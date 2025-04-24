@@ -9,6 +9,8 @@ public static class MeshSplitter
     private static int currentTriangleIndex = 0;
     private static readonly int maxTrisPerMesh = 12;
 
+    private static int splitMeshCount = 0;
+
     public static void SplitMesh(Mesh mesh, RayTracedMaterial material, Matrix4x4 localToWorldMatrix)
     {
         Debug.Log("Splitting mesh: " + mesh.name);
@@ -51,13 +53,13 @@ public static class MeshSplitter
 
             Triangle tri = new()
             {
-                a       = LocalToWorldTranformation(vertices[tris[i    ]], localToWorldMatrix),
-                b       = LocalToWorldTranformation(vertices[tris[i + 1]], localToWorldMatrix),
-                c       = LocalToWorldTranformation(vertices[tris[i + 2]], localToWorldMatrix),
+                a       = /*LocalToWorldTranformation(vertices[tris[i    ]], localToWorldMatrix)*/ vertices[tris[i    ]],
+                b       = /*LocalToWorldTranformation(vertices[tris[i + 1]], localToWorldMatrix)*/ vertices[tris[i + 1]],
+                c       = /*LocalToWorldTranformation(vertices[tris[i + 2]], localToWorldMatrix)*/ vertices[tris[i + 2]],
 
-                aNormal = LocalToWorldTranformation(normals[tris[i    ]], normalMatrix, false),
-                bNormal = LocalToWorldTranformation(normals[tris[i + 1]], normalMatrix, false),
-                cNormal = LocalToWorldTranformation(normals[tris[i + 2]], normalMatrix, false)
+                aNormal = /*LocalToWorldTranformation(normals[tris[i + 0]], normalMatrix, false) */normals[tris[i + 0]],
+                bNormal = /*LocalToWorldTranformation(normals[tris[i + 1]], normalMatrix, false) */normals[tris[i + 1]],
+                cNormal = /*LocalToWorldTranformation(normals[tris[i + 2]], normalMatrix, false) */normals[tris[i + 2]],
             };
 
             currentMeshInfo.numTriangles++;
@@ -83,11 +85,14 @@ public static class MeshSplitter
             info.material = material;
 
             //Transformation matrix to render the mesh in the correct position
-            info.localToWorldMatrix = localToWorldMatrix;
+            //info.localToWorldMatrix = localToWorldMatrix;
+            info.matrixIndex = splitMeshCount;
 
             //Add a copy to the list
             splitMeshes.Add(info);
         }
+
+        splitMeshCount++;
     }
 
     private static (Vector3, Vector3) CalculateBoundsForSubmesh(MeshInfo info)
@@ -115,9 +120,9 @@ public static class MeshSplitter
         return (min, max);
     }
 
-    private static Vector3 LocalToWorldTranformation(Vector3 position, Matrix4x4 matrix, bool includeTransform = true)
+    private static Vector3 LocalToWorldTranformation(Vector3 position, Matrix4x4 matrix, bool includeTranslate = true)
     {
-        return matrix * new Vector4(position.x, position.y, position.z, includeTransform ? 1 : 0);
+        return matrix * new Vector4(position.x, position.y, position.z, includeTranslate ? 1 : 0);
     }
 
     public static (MeshInfo[], Triangle[]) FlushData()
@@ -129,6 +134,7 @@ public static class MeshSplitter
         triangles.Clear();
 
         currentTriangleIndex = 0;
+        splitMeshCount = 0;
 
         return (meshInfos, trianglesArray);
     }
