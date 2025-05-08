@@ -145,29 +145,36 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void UpdateMeshObjectMatrices()
     {
-        Matrix4x4[] localToWorldMatrices = new Matrix4x4[cachedMeshes.Length];
-        Matrix4x4[] worldToLocalMatrices = new Matrix4x4[cachedMeshes.Length];
+        MeshMatrices[] meshMatrices = new MeshMatrices[cachedMeshes.Length];
 
         if (cachedMeshes.Length == 0) return;
 
         for (int i = 0; i < cachedMeshes.Length; i++)
         {
-            localToWorldMatrices[i] = cachedMeshes[i].transform.localToWorldMatrix.inverse.transpose; ;
-            worldToLocalMatrices[i] = cachedMeshes[i].transform.worldToLocalMatrix;
-
-            //localToWorldMatrices[i] = Matrix4x4.identity;
-            //worldToLocalMatrices[i] = Matrix4x4.identity;
+            meshMatrices[i].localToWorldMatrix = cachedMeshes[i].transform.localToWorldMatrix;
+            meshMatrices[i].worldToLocalMatix = cachedMeshes[i].transform.worldToLocalMatrix;
+            meshMatrices[i].normalMatrix = meshMatrices[i].localToWorldMatrix.inverse.transpose;
         }
 
-        ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length);
-        ShaderTool.SetBuffer(localToWorldMatrices);
+        ShaderTool.CreateComputeBuffer<MeshMatrices>(meshMatrices.Length);
+        ShaderTool.SetBuffer(meshMatrices);
 
-        rayTracer.SetBuffer(rayTracerKernelHandle, "_LocalToWorldMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
+        rayTracer.SetBuffer(rayTracerKernelHandle, "_MeshMatrices", ShaderTool.GetComputeBuffer<MeshMatrices>());
 
-        ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
-        ShaderTool.SetBuffer(worldToLocalMatrices);
+        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length);
+        //ShaderTool.SetBuffer(localToWorldMatrices);
 
-        rayTracer.SetBuffer(rayTracerKernelHandle, "_WorldToLocalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
+        //rayTracer.SetBuffer(rayTracerKernelHandle, "_LocalToWorldMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
+
+        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
+        //ShaderTool.SetBuffer(worldToLocalMatrices);
+
+        //rayTracer.SetBuffer(rayTracerKernelHandle, "_WorldToLocalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
+
+        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
+        //ShaderTool.SetBuffer(normalMatrices);
+
+        //rayTracer.SetBuffer(rayTracerKernelHandle, "_NormalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
     }
 
     #endregion

@@ -52,6 +52,13 @@ struct MeshInfo                     //96 byte
     float3 padding;                 //12 byte
 };
 
+struct MeshMatrices                 //192 byte
+{
+    float4x4 localToWorldMatrix;    //64 byte
+    float4x4 worldToLocalMatrix;    //64 byte
+    float4x4 normalMatrix;          //64 byte
+};
+
 struct Ray
 {
     float3 origin;
@@ -72,8 +79,7 @@ StructuredBuffer<Sphere> _Spheres;
 StructuredBuffer<Triangle> _Tris;
 StructuredBuffer<MeshInfo> _MeshInfo;
 
-StructuredBuffer<float4x4> _LocalToWorldMatrices;
-StructuredBuffer<float4x4> _WorldToLocalMatrices;
+StructuredBuffer<MeshMatrices> _MeshMatrices;
 
 uint numSpheres;
 uint numMeshes;
@@ -148,13 +154,13 @@ HitInfo TriangleRayIntersect(Ray ray, Triangle tri, float4x4 normalMatrix)
 
     float determinant = -dot(ray.direction, normalVector);
     float invDet = 1 / determinant;
-				
-	//Calculate dst to triangle & barycentric coordinates of intersection point
+                
+    //Calculate dst to triangle & barycentric coordinates of intersection point
     float dst = dot(ao, normalVector) * invDet;
     float u = dot(edgeAC, dao) * invDet;
     float v = -dot(edgeAB, dao) * invDet;
     float w = 1 - u - v;
-				
+                
     HitInfo hitInfo;
     hitInfo.isHit = determinant >= 1E-6 && dst >= 0 && u >= 0 && v >= 0 && w >= 0;
     hitInfo.position = ray.origin + ray.direction * dst;
@@ -284,42 +290,25 @@ HitInfo FindClosestRayIntersection(Ray ray)
     {
         MeshInfo mesh = _MeshInfo[j];
         
-        meshRay.direction = mul(_WorldToLocalMatrices[mesh.matrixIndex], float4(ray.direction.xyz, 0));
-        meshRay.origin =    mul(_WorldToLocalMatrices[mesh.matrixIndex], float4(ray.origin.xyz, 1));
+        meshRay.direction = mul((float3x3) _MeshMatrices[mesh.matrixIndex].worldToLocalMatrix, ray.direction);
+        meshRay.origin = mul(_MeshMatrices[mesh.matrixIndex].worldToLocalMatrix, float4(ray.origin.xyz, 1)).xyz;
         
         if (!RayBoundingBox(meshRay, mesh.boundsMin, mesh.boundsMax))
             continue;
         
         for (uint tri = 0; tri < mesh.numTriangles; tri++)
         {
-            HitInfo hitInfo = TriangleRayIntersect(meshRay, _Tris[mesh.firstTriangleIndex + tri], _LocalToWorldMatrices[mesh.matrixIndex]);
+            HitInfo hitInfo = TriangleRayIntersect(meshRay, _Tris[mesh.firstTriangleIndex + tri], _MeshMatrices[mesh.matrixIndex].normalMatrix);
             
             if (hitInfo.isHit && hitInfo.distance < closestHit.distance)
             {
                 closestHit = hitInfo;
-                closestHit.position = mul(_LocalToWorldMatrices[mesh.matrixIndex], float4(closestHit.position.xyz, 0));
-                //closestHit.normal = normalize(mul(_LocalToWorldMatrices[mesh.matrixIndex], float4(closestHit.normal, 0)));
+                closestHit.position = mul(_MeshMatrices[mesh.matrixIndex].localToWorldMatrix, float4(closestHit.position.xyz, 1)).xyz;
+                //closestHit.normal = normalize(mul(closestHit.normal, (float3x3)_MeshMatrices[mesh.matrixIndex].normalMatrix));
+                closestHit.normal = normalize(mul((float3x3) _MeshMatrices[mesh.matrixIndex].normalMatrix, closestHit.normal));
                 closestHit.material = mesh.material;
             }
         }
-        
-        closestHit.material.color = float4(closestHit.normal.xyz, 1);
-        
-        //closestHit.position = ray.origin + 2 * ray.direction;
-        //closestHit.material.color = float4(1, 1, 1, 1);
-        //closestHit.normal = float3(0, 0, -1);
-        //closestHit.isHit = true;
-        
-        //Material mat;
-        //mat.color = float4(_Tris[mesh.firstTriangleIndex + 0].c, 1);
-        //mat.smoothness = 0;
-        //mat.emission = 0;
-        //mat.emissionColor = float3(0, 0, 0);
-        
-        //closestHit.position = ray.origin + 2 * ray.direction;
-        //closestHit.material = mat;
-        //closestHit.normal = float3(0, 0, -1);
-        //closestHit.isHit = true;
     }
     
     return closestHit;
