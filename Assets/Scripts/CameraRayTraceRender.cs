@@ -37,7 +37,10 @@ public class CameraRayTraceRender : MonoBehaviour
 
     public static bool UpdateBuffersNextUpdate { get; set; } = false;
 
-    private void Start()
+    public int MaxBounces => maxBouces;
+    public int RaysPerPixel => raysPerPixel;
+
+    private void Awake()
     {
         InitializeShader();
     }    
@@ -68,7 +71,8 @@ public class CameraRayTraceRender : MonoBehaviour
     private void RunShader()
     {
         if (resetBuffersOnUpdate) UpdateBuffersNextUpdate = true;
-        if (!isInitialized) ShaderTool.InitRenderTexture(ref rayTracedTexture);
+        if (rayTracedTexture == null) ShaderTool.InitRenderTexture(ref rayTracedTexture);
+        if (accumulativeTexture == null) ShaderTool.InitRenderTexture(ref accumulativeTexture);
 
         UpdateParameters();
         UpdateMeshObjectMatrices();
@@ -160,21 +164,6 @@ public class CameraRayTraceRender : MonoBehaviour
         ShaderTool.SetBuffer(meshMatrices);
 
         rayTracer.SetBuffer(rayTracerKernelHandle, "_MeshMatrices", ShaderTool.GetComputeBuffer<MeshMatrices>());
-
-        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length);
-        //ShaderTool.SetBuffer(localToWorldMatrices);
-
-        //rayTracer.SetBuffer(rayTracerKernelHandle, "_LocalToWorldMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
-
-        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
-        //ShaderTool.SetBuffer(worldToLocalMatrices);
-
-        //rayTracer.SetBuffer(rayTracerKernelHandle, "_WorldToLocalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
-
-        //ShaderTool.CreateComputeBuffer<Matrix4x4>(cachedMeshes.Length, true);
-        //ShaderTool.SetBuffer(normalMatrices);
-
-        //rayTracer.SetBuffer(rayTracerKernelHandle, "_NormalMatrices", ShaderTool.GetComputeBuffer<Matrix4x4>());
     }
 
     #endregion

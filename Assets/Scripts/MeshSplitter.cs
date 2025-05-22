@@ -53,13 +53,13 @@ public static class MeshSplitter
 
             Triangle tri = new()
             {
-                a       = /*LocalToWorldTranformation(vertices[tris[i    ]], localToWorldMatrix)*/ vertices[tris[i    ]],
-                b       = /*LocalToWorldTranformation(vertices[tris[i + 1]], localToWorldMatrix)*/ vertices[tris[i + 1]],
-                c       = /*LocalToWorldTranformation(vertices[tris[i + 2]], localToWorldMatrix)*/ vertices[tris[i + 2]],
+                a       = vertices[tris[i    ]],
+                b       = vertices[tris[i + 1]],
+                c       = vertices[tris[i + 2]],
 
-                aNormal = /*LocalToWorldTranformation(normals[tris[i + 0]], normalMatrix, false) */normals[tris[i + 0]],
-                bNormal = /*LocalToWorldTranformation(normals[tris[i + 1]], normalMatrix, false) */normals[tris[i + 1]],
-                cNormal = /*LocalToWorldTranformation(normals[tris[i + 2]], normalMatrix, false) */normals[tris[i + 2]],
+                aNormal = normals[tris[i    ]],
+                bNormal = normals[tris[i + 1]],
+                cNormal = normals[tris[i + 2]],
             };
 
             currentMeshInfo.numTriangles++;
@@ -85,7 +85,6 @@ public static class MeshSplitter
             info.material = material;
 
             //Transformation matrix to render the mesh in the correct position
-            //info.localToWorldMatrix = localToWorldMatrix;
             info.matrixIndex = splitMeshCount;
 
             //Add a copy to the list
@@ -118,11 +117,6 @@ public static class MeshSplitter
         }
 
         return (min, max);
-    }
-
-    private static Vector3 LocalToWorldTranformation(Vector3 position, Matrix4x4 matrix, bool includeTranslate = true)
-    {
-        return matrix * new Vector4(position.x, position.y, position.z, includeTranslate ? 1 : 0);
     }
 
     public static (MeshInfo[], Triangle[]) FlushData()

@@ -4,7 +4,28 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/BenchmarkScene.unity
+    guid: 4382ca5399fbd8e4f978f6628a2b7c24
+  - enabled: 1
+    path: Assets/Scenes/RaytracedScenes/Box.unity
+    guid: 9472182c65030f745b138a3885409c64
+  - enabled: 1
+    path: Assets/Scenes/RaytracedScenes/Balls.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
+  - enabled: 1
+    path: Assets/Scenes/RaytracedScenes/Outdoor.unity
+    guid: 71758ae803f416a4892e96ae75caff89
+  - enabled: 1
+    path: Assets/Scenes/BuiltInScenes/NoRTBox.unity
+    guid: b9059ff66631bb444b51c6b53183930e
+  - enabled: 1
+    path: Assets/Scenes/BuiltInScenes/NoRTBalls.unity
+    guid: d28049fbcf9d3d940967579a2d5549c2
+  - enabled: 1
+    path: Assets/Scenes/BuiltInScenes/NoRTOutdoor.unity
+    guid: 4ee5291d491a53749843167e45dc9abb
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
   m_UseUCBPForAssetBundles: 0

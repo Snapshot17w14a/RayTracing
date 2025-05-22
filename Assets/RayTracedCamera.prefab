@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3196237682860003223}
   - component: {fileID: 1596949050566521339}
-  - component: {fileID: 2688182904498458898}
   - component: {fileID: 3719613222307341029}
+  - component: {fileID: 2507985011354016165}
   m_Layer: 0
   m_Name: RayTracedCamera
   m_TagString: MainCamera
@@ -27,13 +27,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4150904297123444024}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.13061269, y: 0, z: 0, w: 0.9914335}
-  m_LocalPosition: {x: 0, y: 0.9, z: -0.9}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 15.01, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &1596949050566521339
 Camera:
   m_ObjectHideFlags: 0
@@ -85,14 +85,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!81 &2688182904498458898
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4150904297123444024}
-  m_Enabled: 1
 --- !u!114 &3719613222307341029
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -109,13 +101,28 @@ MonoBehaviour:
   accumulativeShader: {fileID: 7200000, guid: a5289ca23c0e0bc43a40f71fdea68500, type: 3}
   useRayTracer: 1
   useShaderInSceneView: 1
-  raysPerPixel: 154
-  maxBouces: 64
-  resetBuffersOnUpdate: 1
-  accumulateFrames: 1
+  raysPerPixel: 1
+  maxBouces: 1
+  resetBuffersOnUpdate: 0
+  accumulateFrames: 0
   HorizonColor: {r: 0.9575472, g: 1, b: 0.99538696, a: 0}
   SkyColor: {r: 0.23137255, g: 0.4031565, b: 0.7372549, a: 0}
   skyEmissionStrength: 1
   sunColor: {r: 1, g: 1, b: 1, a: 0}
   skyEyeStrength: 80.8
   sunEmission: 29.42
+--- !u!114 &2507985011354016165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4150904297123444024}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e74331fc5ec11a4a935e7caf8c9b464, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 1596949050566521339}
+  movementSpeed: 5
+  viewSpeed: 0.5

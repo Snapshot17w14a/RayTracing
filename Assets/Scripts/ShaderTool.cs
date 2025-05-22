@@ -37,4 +37,9 @@ public static class ShaderTool
             texture.Create();
         }
     }
+
+    public static void ReleaseAllBuffers()
+    {
+        foreach (var buffer in typeBufferPair.Values) buffer.Release();
+    }
 }

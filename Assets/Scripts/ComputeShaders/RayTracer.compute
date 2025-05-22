@@ -131,21 +131,8 @@ HitInfo SphereRayIntersect(Ray ray, Sphere sphere)
     return hitInfo;
 }
 
-HitInfo TriangleRayIntersect(Ray ray, Triangle tri, float4x4 normalMatrix)
-{
-    //tri.a = mul(localToWorld, float4(tri.a.xyz, 1)).xyz;
-    //tri.b = mul(localToWorld, float4(tri.b.xyz, 1)).xyz;
-    //tri.c = mul(localToWorld, float4(tri.c.xyz, 1)).xyz;
-    
-    ////float3x3 normalMatrix = transpose(inverse((float3x3) localToWorld));
-    //tri.Anormal = normalize(mul((float3x3) localToWorld, tri.Anormal));
-    //tri.Bnormal = normalize(mul((float3x3) localToWorld, tri.Bnormal));
-    //tri.Cnormal = normalize(mul((float3x3) localToWorld, tri.Cnormal));
-    
-    //tri.Anormal = normalize(mul(normalMatrix, float4(tri.Anormal, 0)));
-    //tri.Bnormal = normalize(mul(normalMatrix, float4(tri.Bnormal, 0)));
-    //tri.Cnormal = normalize(mul(normalMatrix, float4(tri.Cnormal, 0)));
-    
+HitInfo TriangleRayIntersect(Ray ray, Triangle tri)
+{    
     float3 edgeAB = tri.b - tri.a;
     float3 edgeAC = tri.c - tri.a;
     float3 normalVector = cross(edgeAB, edgeAC);
@@ -167,72 +154,11 @@ HitInfo TriangleRayIntersect(Ray ray, Triangle tri, float4x4 normalMatrix)
     hitInfo.normal = normalize(tri.Anormal * w + tri.Bnormal * u + tri.Cnormal * v);
     hitInfo.distance = dst;
     return hitInfo;
-    
-    //HitInfo hitinfo = (HitInfo) 0;
-    //hitinfo.isHit = false;
-    
-    //// Compute the plane's normal
-    //float3 v0v1 = tri.b - tri.a;
-    //float3 v0v2 = tri.c - tri.a;
-    //// No need to normalize
-    //float3 N = cross(v0v1, v0v2); // N
- 
-    //// Step 1: Finding P
-    
-    //// Check if the ray and plane are parallel
-    //float NdotRayDirection = dot(N, ray.direction);
-    //if (abs(NdotRayDirection) < 1e-6) // Almost 0
-    //    return hitinfo; // They are parallel, so they don't intersect!
-
-    //// Compute d parameter using equation 2
-    //float d = dot(-N, tri.a);
-    
-    //// Compute t (equation 3)
-    //float t = -(dot(N, ray.origin) + d) / NdotRayDirection;
-    
-    //// Check if the triangle is behind the ray
-    //if (t < 0)
-    //    return hitinfo; // The triangle is behind
- 
-    //// Compute the intersection point using equation 1
-    //float3 P = ray.origin + t * ray.direction;
- 
-    //// Step 2: Inside-Outside Test
-    //float3 Ne; // Vector perpendicular to triangle's plane
- 
-    //// Test sidedness of P w.r.t. edge v0v1
-    //float3 v0p = P - tri.a;
-    //Ne = cross(v0v1, v0p);
-    //if (dot(N, Ne) < 0)
-    //    return hitinfo; // P is on the right side
- 
-    //// Test sidedness of P w.r.t. edge v2v1
-    //float3 v2v1 = tri.c - tri.b;
-    //float3 v1p = P - tri.b;
-    //Ne = cross(v2v1, v1p);
-    //if (dot(N, Ne) < 0)
-    //    return hitinfo; // P is on the right side
- 
-    //// Test sidedness of P w.r.t. edge v2v0
-    //float3 v2v0 = tri.a - tri.c;
-    //float3 v2p = P - tri.c;
-    //Ne = cross(v2v0, v2p);
-    //if (dot(N, Ne) < 0)
-    //    return hitinfo; // P is on the right side
-    
-    //hitinfo.isHit = true;
-    //hitinfo.position = P;
-    //hitinfo.distance = t;
-    //hitinfo.normal = tri.Anormal;
-
-    //return hitinfo; // The ray hits the triangle
 }
 
-bool RayBoundingBox(Ray ray, float3 boundsMin, float3 boundsMax/*, float4x4 localToWorldMatrix*/)
+bool RayBoundingBox(Ray ray, float3 boundsMin, float3 boundsMax)
 {
-    //boundsMin = mul(localToWorldMatrix, float4(boundsMin.xyz, 1)).xyz;
-    //boundsMax = mul(localToWorldMatrix, float4(boundsMax.xyz, 1)).xyz;
-    
+   
     float3 invDir = 1 / ray.direction;
     float3 tMin = (boundsMin - ray.origin) * invDir;
     float3 tMax = (boundsMax - ray.origin) * invDir;
@@ -298,13 +224,12 @@ HitInfo FindClosestRayIntersection(Ray ray)
         
         for (uint tri = 0; tri < mesh.numTriangles; tri++)
         {
-            HitInfo hitInfo = TriangleRayIntersect(meshRay, _Tris[mesh.firstTriangleIndex + tri], _MeshMatrices[mesh.matrixIndex].normalMatrix);
+            HitInfo hitInfo = TriangleRayIntersect(meshRay, _Tris[mesh.firstTriangleIndex + tri]);
             
             if (hitInfo.isHit && hitInfo.distance < closestHit.distance)
             {
                 closestHit = hitInfo;
                 closestHit.position = mul(_MeshMatrices[mesh.matrixIndex].localToWorldMatrix, float4(closestHit.position.xyz, 1)).xyz;
-                //closestHit.normal = normalize(mul(closestHit.normal, (float3x3)_MeshMatrices[mesh.matrixIndex].normalMatrix));
                 closestHit.normal = normalize(mul((float3x3) _MeshMatrices[mesh.matrixIndex].normalMatrix, closestHit.normal));
                 closestHit.material = mesh.material;
             }
@@ -354,7 +279,6 @@ float3 RandomRay(float3 normal)
 
 float3 SkyColor(Ray ray)
 {
-    //return smoothstep(float3(0.2, 0.2, 0.2), _SkyColor, (ray.direction.y + 1) / 2);
     float skyT = pow(smoothstep(0, 0.4, ray.direction.y), 0.35);
     float3 skyColor = lerp(_HorizonColor, _SkyColor, skyT);
     float mult = pow(max(0, dot(ray.direction, -_SunDirection)), _SunEye);
