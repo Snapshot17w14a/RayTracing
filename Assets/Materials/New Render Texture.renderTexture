@@ -6,17 +6,17 @@ RenderTexture:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MIrror
+  m_Name: New Render Texture
   m_ImageContentsHash:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
   m_IsAlphaChannelOptional: 0
   serializedVersion: 6
-  m_Width: 1024
-  m_Height: 1024
-  m_AntiAliasing: 1
+  m_Width: 2048
+  m_Height: 2048
+  m_AntiAliasing: 8
   m_MipCount: -1
-  m_DepthStencilFormat: 0
+  m_DepthStencilFormat: 151
   m_ColorFormat: 8
   m_MipMap: 0
   m_GenerateMips: 1
@@ -35,5 +35,5 @@ RenderTexture:
     m_WrapV: 1
     m_WrapW: 1
   m_Dimension: 2
-  m_VolumeDepth: 10
-  m_ShadowSamplingMode: 2
+  m_VolumeDepth: 1
+  m_ShadowSamplingMode: 0
