@@ -40,7 +40,7 @@ public class CameraRayTraceRender : MonoBehaviour
     public int MaxBounces => maxBouces;
     public int RaysPerPixel => raysPerPixel;
 
-    private void Awake()
+    private void Start()
     {
         InitializeShader();
     }    
@@ -62,7 +62,6 @@ public class CameraRayTraceRender : MonoBehaviour
         ShaderTool.InitRenderTexture(ref rayTracedTexture);
         if (accumulateFrames) ShaderTool.InitRenderTexture(ref accumulativeTexture);
 
-        GetSphereDataFromObjects();
         ResetBuffers();
 
         isInitialized = true;
@@ -70,7 +69,6 @@ public class CameraRayTraceRender : MonoBehaviour
 
     private void RunShader()
     {
-        if (resetBuffersOnUpdate) UpdateBuffersNextUpdate = true;
         if (rayTracedTexture == null) ShaderTool.InitRenderTexture(ref rayTracedTexture);
         if (accumulativeTexture == null) ShaderTool.InitRenderTexture(ref accumulativeTexture);
 
@@ -155,6 +153,14 @@ public class CameraRayTraceRender : MonoBehaviour
 
         for (int i = 0; i < cachedMeshes.Length; i++)
         {
+            if (cachedMeshes[i] == null)
+            {
+                cachedMeshes = CollectMeshesInScene();
+                CreateAndSetMeshBuffer();
+                UpdateMeshObjectMatrices();
+                return;
+            }
+
             meshMatrices[i].localToWorldMatrix = cachedMeshes[i].transform.localToWorldMatrix;
             meshMatrices[i].worldToLocalMatix = cachedMeshes[i].transform.worldToLocalMatrix;
             meshMatrices[i].normalMatrix = meshMatrices[i].localToWorldMatrix.inverse.transpose;
@@ -171,6 +177,8 @@ public class CameraRayTraceRender : MonoBehaviour
     private void UpdateParameters()
     {
         rayTracer.SetTexture(rayTracerKernelHandle, "Result", rayTracedTexture);
+
+        if (renderCamrera == null) renderCamrera = Camera.current;
 
         rayTracer.SetVector("_CameraPosition", renderCamrera.transform.position);
         rayTracer.SetVector("_HorizonColor", HorizonColor);
@@ -218,11 +226,6 @@ public class CameraRayTraceRender : MonoBehaviour
         CreateAndSetMeshBuffer();
 
         UpdateBuffersNextUpdate = false;
-    }
-
-    private void OnDisable()
-    {
-        isInitialized = false;
     }
 
     private void OnDestroy()
