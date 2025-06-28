@@ -11,7 +11,7 @@ public static class MeshSplitter
 
     private static int splitMeshCount = 0;
 
-    public static void SplitMesh(Mesh mesh, RayTracedMaterial material, Matrix4x4 localToWorldMatrix)
+    public static void SplitMesh(Mesh mesh, RayTracedMaterial material)
     {
         Debug.Log("Splitting mesh: " + mesh.name);
 
@@ -31,9 +31,6 @@ public static class MeshSplitter
 
         //Create a MeshInfo to begin the loop with
         MeshInfo currentMeshInfo = new() { firstTirangeIndex = firstTirangeIndex };
-
-        //Create a matrix for normals
-        Matrix4x4 normalMatrix = localToWorldMatrix.inverse.transpose;
 
         //Iterate through all tris and create a triange struct for it,
         //update the contents of currentMeshInfo to keep track of the number of triangles
@@ -77,9 +74,9 @@ public static class MeshSplitter
             MeshInfo info = submeshInfos[i];
 
             //Calculate the bounds of the submesh
-            var meshBounds = CalculateBoundsForSubmesh(info);
-            info.minBounds = meshBounds.Item1;
-            info.maxBounds = meshBounds.Item2;
+            var (min, max) = CalculateBoundsForSubmesh(info);
+            info.minBounds = min;
+            info.maxBounds = max;
 
             //Add the used material to the mesh
             info.material = material;
@@ -94,7 +91,7 @@ public static class MeshSplitter
         splitMeshCount++;
     }
 
-    private static (Vector3, Vector3) CalculateBoundsForSubmesh(MeshInfo info)
+    private static (Vector3 min, Vector3 max) CalculateBoundsForSubmesh(MeshInfo info)
     {
         Vector3 min = new(float.MaxValue, float.MaxValue, float.MaxValue);
         Vector3 max = new(float.MinValue, float.MinValue, float.MinValue);

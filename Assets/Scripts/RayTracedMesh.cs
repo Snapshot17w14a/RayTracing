@@ -6,11 +6,6 @@ public class RayTracedMesh : RayTracedObject
 
     public void AddMeshToSplitter()
     {
-        MeshSplitter.SplitMesh(GetComponent<MeshFilter>().sharedMesh, material, transform.localToWorldMatrix);
-    }
-
-    protected override void OnValidate()
-    {
-        base.OnValidate();
+        MeshSplitter.SplitMesh(GetComponent<MeshFilter>().sharedMesh, material);
     }
 }

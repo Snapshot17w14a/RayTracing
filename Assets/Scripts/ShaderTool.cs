@@ -5,7 +5,7 @@ using System;
 
 public static class ShaderTool
 {
-    private static Dictionary<Type, ComputeBuffer> typeBufferPair = new();
+    private static readonly Dictionary<Type, ComputeBuffer> typeBufferPair = new();
 
     public static ComputeBuffer GetComputeBuffer<T>() where T : struct => typeBufferPair[typeof(T)];
 
@@ -41,5 +41,6 @@ public static class ShaderTool
     public static void ReleaseAllBuffers()
     {
         foreach (var buffer in typeBufferPair.Values) buffer.Release();
+        typeBufferPair.Clear();
     }
 }
