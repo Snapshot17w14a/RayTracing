@@ -160,6 +160,9 @@ MonoBehaviour:
   - NoRTOutdoor
   - Balls
   - NoRTBalls
+  - Cube
+  - Queen
+  - Dragon
 --- !u!4 &242107344
 Transform:
   m_ObjectHideFlags: 0

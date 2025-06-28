@@ -26,6 +26,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/BuiltInScenes/NoRTOutdoor.unity
     guid: 4ee5291d491a53749843167e45dc9abb
+  - enabled: 1
+    path: Assets/Scenes/DiffModelsRT/Cube.unity
+    guid: f74c23b7641ea774c92810cb4b81d96f
+  - enabled: 1
+    path: Assets/Scenes/DiffModelsRT/Dragon.unity
+    guid: 54e010be0293d1f408a828fc25ea0a7c
+  - enabled: 1
+    path: Assets/Scenes/DiffModelsRT/Queen.unity
+    guid: 87f89242eb76eeb4397395ded6e1ce7c
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
   m_UseUCBPForAssetBundles: 0
